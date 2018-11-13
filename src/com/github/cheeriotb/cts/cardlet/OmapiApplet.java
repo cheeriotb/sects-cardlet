@@ -23,26 +23,26 @@ import javacard.framework.Applet;
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 
-public class SelectResponse extends Applet {
+public class OmapiApplet extends Applet {
 
-    private static byte[] FCI_TEMPLATE = {
-            (byte)0x6F, (byte)0x0A, (byte)0x64, (byte)0x03, (byte)0x53, (byte)0x01,
-            (byte)0x01, (byte)0x62, (byte)0x03, (byte)0x85, (byte)0x01, (byte)0x01
+    final private static byte[] FCI_TEMPLATE = {
+            (byte) 0x6F, (byte) 0x0A, (byte) 0x64, (byte) 0x03, (byte) 0x53, (byte) 0x01,
+            (byte) 0x01, (byte) 0x62, (byte) 0x03, (byte) 0x85, (byte) 0x01, (byte) 0x01
     };
 
-    private SelectResponse() {
+    private OmapiApplet() {
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
-        SelectResponse applet = new SelectResponse();
+        OmapiApplet applet = new OmapiApplet();
         applet.register();
     }
 
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
         if (selectingApplet()) {
-            Util.arrayCopy(FCI_TEMPLATE, (short)0, buffer, (short)0, (short)FCI_TEMPLATE.length);
-            apdu.setOutgoingAndSend((short)0, (short)FCI_TEMPLATE.length);
+            Util.arrayCopy(FCI_TEMPLATE, (short) 0, buffer, (short) 0, (short) FCI_TEMPLATE.length);
+            apdu.setOutgoingAndSend((short) 0, (short) FCI_TEMPLATE.length);
         }
     }
 }
