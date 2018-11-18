@@ -82,7 +82,14 @@ public class OmapiApplet extends Applet {
             (byte) 0x43, (byte) 0x54, (byte) 0x53, (byte) 0x32
     };
 
+    private static AID sAidLongResponse;
+    private static byte[] sResponseBuffer;
+
     private OmapiApplet() {
+        sAidLongResponse = new AID(AID_LONG_RESPONSE, (short) 0, (byte) AID_LONG_RESPONSE.length);
+        sResponseBuffer = new byte[256];
+        Util.arrayFillNonAtomic(sResponseBuffer, (short) 0, (short) sResponseBuffer.length,
+                (byte) 0x00);
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -97,9 +104,8 @@ public class OmapiApplet extends Applet {
             switch (buffer[ISO7816.OFFSET_P2] & 0x0C) {
                 // Return FCI template, optional use of FCI tag and length
                 case 0x00:
-                    AID selected = new AID(buffer, ISO7816.OFFSET_CDATA, buffer[ISO7816.OFFSET_LC]);
-                    if (selected.equals(AID_LONG_RESPONSE, (short) 0,
-                            (byte) AID_LONG_RESPONSE.length)) {
+                    if (sAidLongResponse.equals(buffer, ISO7816.OFFSET_CDATA,
+                            buffer[ISO7816.OFFSET_LC])) {
                         response = SELECT_RESPONSE_FCI_LONG;
                     } else {
                         response = SELECT_RESPONSE_FCI_SHORT;
@@ -145,11 +151,9 @@ public class OmapiApplet extends Applet {
                         && apdu.setIncomingAndReceive() != 0x01) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 }
-                output = new byte[256];
-                Util.arrayFillNonAtomic(output, (short) 0, (short) output.length, (byte) 0x00);
                 apdu.setOutgoing();
-                apdu.setOutgoingLength((short) output.length);
-                apdu.sendBytesLong(output, (short) 0, (short) output.length);
+                apdu.setOutgoingLength((short) sResponseBuffer.length);
+                apdu.sendBytesLong(sResponseBuffer, (short) 0, (short) sResponseBuffer.length);
                 break;
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
