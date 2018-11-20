@@ -133,22 +133,31 @@ public class OmapiApplet extends Applet {
         byte[] output = null;
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_BASIC_CASE_1:
+                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                break;
+            case INS_BASIC_CASE_2:
+                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                apdu.setOutgoing();
+                apdu.setOutgoingLength((short) sResponseBuffer.length);
+                apdu.sendBytesLong(sResponseBuffer, (short) 0, (short) sResponseBuffer.length);
+                break;
             case INS_BASIC_CASE_3:
                 if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CASE_3
-                        && apdu.setIncomingAndReceive() != 0x01) {
+                if (apdu.setIncomingAndReceive() != 0x01) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 }
                 break;
-            case INS_BASIC_CASE_2:
             case INS_BASIC_CASE_4:
                 if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CASE_4
-                        && apdu.setIncomingAndReceive() != 0x01) {
+                if (apdu.setIncomingAndReceive() != 0x01) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 }
                 apdu.setOutgoing();
