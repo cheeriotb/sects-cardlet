@@ -27,10 +27,10 @@ import javacard.framework.Util;
 
 public class OmapiApplet extends Applet {
 
-    private static final byte INS_BASIC_CLASS_1 = (byte) 0x06;
-    private static final byte INS_BASIC_CLASS_3 = (byte) 0x0A;
-    private static final byte INS_BASIC_CLASS_2 = (byte) 0x08;
-    private static final byte INS_BASIC_CLASS_4 = (byte) 0x0C;
+    private static final byte INS_BASIC_CASE_1 = (byte) 0x06;
+    private static final byte INS_BASIC_CASE_3 = (byte) 0x0A;
+    private static final byte INS_BASIC_CASE_2 = (byte) 0x08;
+    private static final byte INS_BASIC_CASE_4 = (byte) 0x0C;
 
     private static final byte[] SELECT_RESPONSE_FCP = {
             (byte) 0x62, (byte) 0x1A, (byte) 0x82, (byte) 0x02, (byte) 0x38, (byte) 0x21,
@@ -132,22 +132,22 @@ public class OmapiApplet extends Applet {
         }
         byte[] output = null;
         switch (buffer[ISO7816.OFFSET_INS]) {
-            case INS_BASIC_CLASS_1:
-            case INS_BASIC_CLASS_3:
+            case INS_BASIC_CASE_1:
+            case INS_BASIC_CASE_3:
                 if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CLASS_3
+                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CASE_3
                         && apdu.setIncomingAndReceive() != 0x01) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 }
                 break;
-            case INS_BASIC_CLASS_2:
-            case INS_BASIC_CLASS_4:
+            case INS_BASIC_CASE_2:
+            case INS_BASIC_CASE_4:
                 if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
-                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CLASS_4
+                if (buffer[ISO7816.OFFSET_INS] == INS_BASIC_CASE_4
                         && apdu.setIncomingAndReceive() != 0x01) {
                     ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                 }
