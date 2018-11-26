@@ -39,9 +39,16 @@ public class OmapiApplet extends Applet {
     private static final byte INS_SEGMENTED_CASE4_FF = (byte) 0xC4;
     private static final byte INS_SEGMENTED_CASE4_00 = (byte) 0xC8;
 
+    private static final byte INS_WARNING_SW = (byte) 0xF3;
+
+    private static final byte P2_WARNING_SW_CASE1 = (byte) 0x06;
+    private static final byte P2_WARNING_SW_CASE2 = (byte) 0x08;
+    private static final byte P2_WARNING_SW_CASE3 = (byte) 0x0A;
+    private static final byte P2_WARNING_SW_CASE4 = (byte) 0x0C;
+
     private static final byte INS_GET_RESPONSE = (byte) 0xC0;
 
-    private static final short SEGMENT_00 = (short) 0x0100;
+    private static final short SEGMENT_00 = DATA_BUFFER_SIZE;
     private static final short SEGMENT_FF = (short) 0x00FF;
 
     private static final byte[] SELECT_RESPONSE_FCP = {
@@ -94,6 +101,13 @@ public class OmapiApplet extends Applet {
             (byte) 0x43, (byte) 0x54, (byte) 0x53, (byte) 0x32
     };
 
+    private static final short[] WARNING_SWS = {
+            (short) 0x6200, (short) 0x6281, (short) 0x6282, (short) 0x6283,
+            (short) 0x6285, (short) 0x62F1, (short) 0x62F2, (short) 0x63F1,
+            (short) 0x63F2, (short) 0x63C2, (short) 0x6202, (short) 0x6280,
+            (short) 0x6284, (short) 0x6286, (short) 0x6300, (short) 0x6381
+    };
+
     private static AID sAidLongResponse;
     private static byte[] sOutgoingData;
 
@@ -117,11 +131,13 @@ public class OmapiApplet extends Applet {
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
         byte cla = buffer[ISO7816.OFFSET_CLA];
+        byte p1 = buffer[ISO7816.OFFSET_P1];
+        byte p2 = buffer[ISO7816.OFFSET_P2];
 
         if (selectingApplet()) {
             byte[] response;
 
-            switch (buffer[ISO7816.OFFSET_P2] & 0x0C) {
+            switch (p2 & 0x0C) {
                 // Return FCI template, optional use of FCI tag and length
                 case 0x00:
                     if (sAidLongResponse.equals(buffer, ISO7816.OFFSET_CDATA,
@@ -158,13 +174,13 @@ public class OmapiApplet extends Applet {
 
         switch (buffer[ISO7816.OFFSET_INS]) {
             case INS_BASIC_CASE_1:
-                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                if (p1 != 0x00 || p2 != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 break;
 
             case INS_BASIC_CASE_2:
-                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                if (p1 != 0x00 || p2 != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 processOutgoingCase2(apdu, cla, DATA_BUFFER_SIZE, buffer[ISO7816.OFFSET_LC],
@@ -172,7 +188,7 @@ public class OmapiApplet extends Applet {
                 break;
 
             case INS_BASIC_CASE_3:
-                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                if (p1 != 0x00 || p2 != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 if (apdu.setIncomingAndReceive() != 0x01) {
@@ -181,7 +197,7 @@ public class OmapiApplet extends Applet {
                 break;
 
             case INS_BASIC_CASE_4:
-                if (buffer[ISO7816.OFFSET_P1] != 0x00 || buffer[ISO7816.OFFSET_P2] != 0x00) {
+                if (p1 != 0x00 || p2 != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                 }
                 if (apdu.setIncomingAndReceive() != 0x01) {
@@ -215,6 +231,38 @@ public class OmapiApplet extends Applet {
                 }
                 processOutgoingCase4(cla, Util.getShort(buffer, (short) ISO7816.OFFSET_P1),
                         SEGMENT_00);
+                break;
+
+            case INS_WARNING_SW:
+                if (p1 < 1 || p1 > WARNING_SWS.length) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                switch (p2) {
+                    case P2_WARNING_SW_CASE1:
+                        ISOException.throwIt(WARNING_SWS[p1 - 1]);
+                        break;
+                    case P2_WARNING_SW_CASE2:
+                        sendShortData(apdu, buffer[ISO7816.OFFSET_LC]);
+                        ISOException.throwIt(WARNING_SWS[p1 - 1]);
+                        break;
+                    case P2_WARNING_SW_CASE3:
+                        if (apdu.setIncomingAndReceive() != 0x01) {
+                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        }
+                        ISOException.throwIt(WARNING_SWS[p1 - 1]);
+                        break;
+                    case P2_WARNING_SW_CASE4:
+                        if (apdu.setIncomingAndReceive() != 0x01) {
+                            ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+                        }
+                        buffer[ISO7816.OFFSET_CLA] = 0x01;
+                        apdu.setOutgoingAndSend((short) 0, (short) 7);
+                        ISOException.throwIt(WARNING_SWS[p1 - 1]);
+                        break;
+                    default:
+                        ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                        break;
+                }
                 break;
 
             case INS_GET_RESPONSE:
@@ -255,7 +303,7 @@ public class OmapiApplet extends Applet {
     private void processOutgoingCase2(APDU apdu, byte cla, short total, short expected,
             short segment) throws ISOException {
         short available = (segment < total) ? segment : total;
-        expected = (expected != 0x00) ? expected : (short) 0x100;
+        expected = (expected != 0x00) ? expected : DATA_BUFFER_SIZE;
 
         if (expected > available) {
             mSegmentSize = segment;
@@ -269,7 +317,7 @@ public class OmapiApplet extends Applet {
 
         apdu.setOutgoing();
         apdu.setOutgoingLength(available);
-        apdu.sendBytesLong(sOutgoingData, (short) (0x100 - available), available);
+        apdu.sendBytesLong(sOutgoingData, (short) (DATA_BUFFER_SIZE - available), available);
 
         if ((total -= available) > 0) {
             mSegmentSize = segment;
@@ -281,6 +329,15 @@ public class OmapiApplet extends Applet {
             ISOException.throwIt((short) (ISO7816.SW_BYTES_REMAINING_00
                     + ((expected > 0xFF) ? (short) 0x00 : expected)));
         }
+    }
+
+    private void sendShortData(APDU apdu, short expected) {
+        if (expected == 0x00) {
+            expected = DATA_BUFFER_SIZE;
+        }
+        apdu.setOutgoing();
+        apdu.setOutgoingLength(expected);
+        apdu.sendBytesLong(sOutgoingData, (short) (DATA_BUFFER_SIZE - expected), expected);
     }
 }
 
