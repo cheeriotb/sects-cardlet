@@ -101,6 +101,11 @@ public class OmapiApplet extends Applet {
             (byte) 0x43, (byte) 0x54, (byte) 0x53, (byte) 0x32
     };
 
+    private static final byte[] SPECIAL_CASE4_APDU = {
+            (byte) 0x01, (byte) 0xF3, (byte) 0x00, (byte) 0x0C, (byte) 0x01, (byte) 0xAA,
+            (byte) 0x00
+    };
+
     private static final short[] WARNING_SWS = {
             (short) 0x6200, (short) 0x6281, (short) 0x6282, (short) 0x6283,
             (short) 0x6285, (short) 0x62F1, (short) 0x62F2, (short) 0x63F1,
@@ -114,6 +119,7 @@ public class OmapiApplet extends Applet {
     private short mSegmentSize = 0;
     private short mRemainingSize = 0;
     private byte mCurrentClass = 0x00;
+    private byte mWarningP1 = 0x00;
 
     private OmapiApplet() {
     }
@@ -130,6 +136,7 @@ public class OmapiApplet extends Applet {
 
     public void process(APDU apdu) throws ISOException {
         byte[] buffer = apdu.getBuffer();
+        byte ins = buffer[ISO7816.OFFSET_INS];
         byte cla = buffer[ISO7816.OFFSET_CLA];
         byte p1 = buffer[ISO7816.OFFSET_P1];
         byte p2 = buffer[ISO7816.OFFSET_P2];
@@ -172,7 +179,11 @@ public class OmapiApplet extends Applet {
             return;
         }
 
-        switch (buffer[ISO7816.OFFSET_INS]) {
+        if (ins != INS_GET_RESPONSE) {
+            clearOutgoingData();
+        }
+
+        switch (ins) {
             case INS_BASIC_CASE_1:
                 if (p1 != 0x00 || p2 != 0x00) {
                     ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
@@ -255,9 +266,11 @@ public class OmapiApplet extends Applet {
                         if (apdu.setIncomingAndReceive() != 0x01) {
                             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
                         }
-                        buffer[ISO7816.OFFSET_CLA] = 0x01;
-                        apdu.setOutgoingAndSend((short) 0, (short) 7);
-                        ISOException.throwIt(WARNING_SWS[p1 - 1]);
+                        mCurrentClass = cla;
+                        mWarningP1 = p1;
+                        // Return SW 61xx for now as Le is unknown.
+                        ISOException.throwIt((short) (ISO7816.SW_BYTES_REMAINING_00
+                                + SPECIAL_CASE4_APDU.length));
                         break;
                     default:
                         ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
@@ -269,22 +282,28 @@ public class OmapiApplet extends Applet {
                 if (cla != mCurrentClass) {
                     ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
                 }
-                if (mRemainingSize > 0) {
+                if (mRemainingSize != 0) {
                     processOutgoingCase2(apdu, cla, mRemainingSize, buffer[ISO7816.OFFSET_LC],
                             mSegmentSize);
+                }
+                if (mWarningP1 != 0x00) {
+                    short length = (short) buffer[ISO7816.OFFSET_LC];
+
+                    Util.arrayCopy(SPECIAL_CASE4_APDU, (short) 0, buffer, (short) 0,
+                            (short) SPECIAL_CASE4_APDU.length);
+                    buffer[ISO7816.OFFSET_P1] = mWarningP1;
+
+                    apdu.setOutgoingAndSend((short) 0, (length != 0x00) ? length
+                            : DATA_BUFFER_SIZE);
+
+                    clearOutgoingData();
+                    ISOException.throwIt(WARNING_SWS[buffer[ISO7816.OFFSET_P1] - 1]);
                 }
                 break;
 
             default:
                 ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
                 break;
-        }
-
-        // Dispose the remaining outgoing data if SW 9000 is responded once.
-        if (mRemainingSize > 0) {
-            mSegmentSize = 0;
-            mRemainingSize = 0;
-            mCurrentClass = 0x00;
         }
     }
 
@@ -306,10 +325,6 @@ public class OmapiApplet extends Applet {
         expected = (expected != 0x00) ? expected : DATA_BUFFER_SIZE;
 
         if (expected > available) {
-            mSegmentSize = segment;
-            mRemainingSize = total;
-            mCurrentClass = cla;
-
             // Return SW 6Cxx if Le is bigger than the the actual outgoing data.
             ISOException.throwIt((short) (ISO7816.SW_CORRECT_LENGTH_00
                     + ((available > 0xFF) ? 0x00 : available)));
@@ -328,6 +343,8 @@ public class OmapiApplet extends Applet {
             // Return SW 61xx if remaining outgoing data exists after sending outgoing data.
             ISOException.throwIt((short) (ISO7816.SW_BYTES_REMAINING_00
                     + ((expected > 0xFF) ? (short) 0x00 : expected)));
+        } else {
+            clearOutgoingData();
         }
     }
 
@@ -338,6 +355,18 @@ public class OmapiApplet extends Applet {
         apdu.setOutgoing();
         apdu.setOutgoingLength(expected);
         apdu.sendBytesLong(sOutgoingData, (short) (DATA_BUFFER_SIZE - expected), expected);
+    }
+
+    private void clearOutgoingData() {
+        if (mRemainingSize != 0) {
+            mRemainingSize = 0;
+        }
+        if (mWarningP1 != 0x00) {
+            mWarningP1 = 0x00;
+        }
+        if (mCurrentClass != 0x00) {
+            mCurrentClass = 0x00;
+        }
     }
 }
 
