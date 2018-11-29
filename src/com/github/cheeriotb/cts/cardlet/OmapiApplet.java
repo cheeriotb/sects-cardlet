@@ -46,6 +46,8 @@ public class OmapiApplet extends Applet {
     private static final byte P2_WARNING_SW_CASE3 = (byte) 0x0A;
     private static final byte P2_WARNING_SW_CASE4 = (byte) 0x0C;
 
+    private static final byte INS_CHECCK_P2 = (byte) 0xF4;
+
     private static final byte INS_GET_RESPONSE = (byte) 0xC0;
 
     private static final short SEGMENT_00 = DATA_BUFFER_SIZE;
@@ -120,6 +122,7 @@ public class OmapiApplet extends Applet {
     private short mRemainingSize = 0;
     private byte mCurrentClass = 0x00;
     private byte mWarningP1 = 0x00;
+    private byte mSelectP2 = 0x00;
 
     private OmapiApplet() {
     }
@@ -143,6 +146,8 @@ public class OmapiApplet extends Applet {
 
         if (selectingApplet()) {
             byte[] response;
+
+            mSelectP2 = p2;
 
             switch (p2 & 0x0C) {
                 // Return FCI template, optional use of FCI tag and length
@@ -275,6 +280,19 @@ public class OmapiApplet extends Applet {
                     default:
                         ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
                         break;
+                }
+                break;
+
+            case INS_CHECCK_P2:
+                if (p1 != 0x00 || p2 != 0x00) {
+                    ISOException.throwIt(ISO7816.SW_WRONG_P1P2);
+                }
+                if (buffer[ISO7816.OFFSET_LC] == 0x01) {
+                    buffer[0] = mSelectP2;
+                    apdu.setOutgoingAndSend((short) 0, (short) 1);
+                } else {
+                    // Return SW 6C01 if Le is bigger than the the actual outgoing data.
+                    ISOException.throwIt((short) (ISO7816.SW_CORRECT_LENGTH_00 + 0x01));
                 }
                 break;
 
