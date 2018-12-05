@@ -19,7 +19,7 @@ You should prepare your own appropriate make file for your development environme
 
 # Licence
 
-This software is released under the MIT License, see LICENSE.
+This software is released under the GNU General Public License v2.0, see LICENSE.
 
 # Author
 
